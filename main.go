@@ -55,14 +55,19 @@ func render(tmpl string, values map[string]any) (string, error) {
 	return b.String(), err
 }
 
-func run(cmd *exec.Cmd) error {
+func run(noop, quiet bool, cmd *exec.Cmd) error {
 	cmd.Env = os.Environ()
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	fmt.Println("$", cmd.String())
+	if !quiet {
+		fmt.Println("$", cmd.String())
+	}
+	if noop {
+		return nil
+	}
 	return cmd.Run()
 }
 
-func ash(args []string) error {
+func ash(noop, quiet bool, args []string) error {
 	fset, values, args := defineFlags(args)
 	assert.Nil(fset.Parse(args[1:]))
 	values["args"] = fset.Args()
@@ -70,7 +75,7 @@ func ash(args []string) error {
 	if err != nil {
 		return err
 	}
-	return run(exec.Command("sh", "-c", cmd))
+	return run(noop, quiet, exec.Command("sh", "-c", cmd))
 }
 
 const help = `ash is a hybrid between getopts and 'sh -c'.
@@ -80,7 +85,7 @@ Go templates. Flags and positional arguments can be referenced within the
 command template -- flags by name, and the remaining arguments via {{.args}}.
 
 Usage:
-  ash [--name [value [usage]]]... <command> [flags] [args]
+  ash [-n, --noop] [-q, --quiet] [-<name> [<value> [usage]]]... <template>
 
 Example:
   alias rdiff='ash "-b main branch" "--remote origin" \
@@ -97,12 +102,26 @@ Example:
 See https://pkg.go.dev/text/template for more information on Go templates.`
 
 func main() {
-	args := os.Args[1:]
-	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
-		fmt.Println(help)
-		return
+	var (
+		noop, quiet bool
+		args        = os.Args[1:]
+	)
+loop:
+	for i, arg := range args {
+		switch arg {
+		case "help", "-h", "--help":
+			fmt.Println(help)
+			return
+		case "-n", "--noop":
+			noop = true
+		case "-q", "--quiet":
+			quiet = true
+		default:
+			args = args[i:]
+			break loop
+		}
 	}
-	if err := ash(args); err != nil {
+	if err := ash(noop, quiet, args); err != nil {
 		fmt.Fprintf(os.Stderr, "ash: %v\n", err)
 		if eerr := new(exec.ExitError); errors.As(err, &eerr) {
 			os.Exit(eerr.ExitCode())

@@ -12,13 +12,13 @@ Go templates. Flags and positional arguments can be referenced within the
 command template -- flags by name, and the remaining arguments via {{.args}}.
 
 Usage:
-  ash [--name [value [usage]]]... <command> [flags] [args]
+  ash [-n, --noop] [-q, --quiet] [-<name> [<value> [usage]]]... <template>
 
 Example:
   alias rdiff='ash "-b main branch" "--remote origin" \
-  	"git fetch {{.remote}} && git diff {{.remote}}/{{.b}}"'
+        "git fetch {{.remote}} && git diff {{.remote}}/{{.b}}"'
 
-  $ rdiff -h
+  $ rdiff --help
 
   Usage:
     -b string
